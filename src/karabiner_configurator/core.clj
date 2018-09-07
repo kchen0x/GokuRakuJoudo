@@ -3,7 +3,6 @@
    [schema.core :as s]
    [cheshire.core :as json]
    [clojure.string :as string]
-   [clojure.java.shell :as shell]
    [karabiner-configurator.modifiers :as modifiers]
    [karabiner-configurator.misc :refer :all]
    [karabiner-configurator.data :refer :all]
@@ -11,8 +10,10 @@
    [karabiner-configurator.froms :as froms]
    [karabiner-configurator.tos :as tos]
    [karabiner-configurator.rules :as rules]
+   [karabiner-configurator.fork-conch :as conch]
    [clojure.edn :as edn]
    [me.raynes.fs :as fs]
+   [me.raynes.conch.low-level :as sh]
    [clojure.tools.cli :as cli])
   (:gen-class))
 
@@ -41,9 +42,6 @@
     (rules/parse-mains main)))
 
 (defn parse [conf]
-  ;; (spit "/Users/rashawnzhang/workspace/HOME/karabiner-configurator/src/karabiner_configurator/rules.json"
-  ;;       (json/generate-string (generate conf) {:pretty true}))
-  ;; (json/generate-string (generate conf) {:pretty true})
   (init-conf-data)
   (generate conf))
 
@@ -56,11 +54,6 @@
   (if (System/getenv "XDG_CONFIG_HOME")
     (str (System/getenv "XDG_CONFIG_HOME") "karabiner.edn")
     (str (System/getenv "HOME") "/.config/karabiner.edn")))
-
-;; (println (str "$XDG_CONFIG_HOME: " (System/getenv "XDG_CONFIG_HOME")))
-;; (println (str "$HOME: " (System/getenv "HOME")))
-;; (println (str "karabiner json path: " karabiner-json-path))
-;; (println (str "edn config file path: " config-file))
 
 (defn update-to-karabiner-json [rules]
   (let [karabiner-config (load-json karabiner-json-path)
@@ -83,7 +76,8 @@
 
 (defn watch []
   (println (str "watching " config-file))
-  (shell/sh "watchexec" "-w" config-file "goku"))
+  (let [watching (sh/proc "watchexec" "-r" "-w" config-file "goku")
+        stdout (future (sh/stream-to-out watching :out))]))
 
 ;; cli things
 (def cli-opts
